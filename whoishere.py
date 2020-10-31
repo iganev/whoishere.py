@@ -114,6 +114,7 @@ def SearchList(pkt) :
 
 def PrintInfo(pkt) :
 	global fingerprint
+	global outputline
 	timea = time.strftime("%Y-%m-%d %H:%M:%S")
 	timefingerprint = time.strftime("%Y-%m-%d %H" + (":%M" if fingerprint_minutes else ""))
 	namef = " NAME: " + name.ljust(maxlenght)[0:maxlenght]
@@ -140,9 +141,9 @@ def PrintInfo(pkt) :
                         except :
                                 print "Failed to send pushover notification: " + outputline[22:-3]
 
-def WriteLog(fingerprint):
+def WriteLog(outputline):
         file = open(logfilename, "a")
-        file.write(fingerprint + "\n")
+        file.write(outputline + "\n")
         file.close()
 
 
@@ -151,7 +152,7 @@ def PacketHandler(pkt) :
         	GetOUI(pkt)
 		SearchList(pkt)
 		PrintInfo(pkt)
-		WriteLog(fingerprint)
+		WriteLog(outputline)
 
 def signal_handler(signal, frame):
         print "\n\033[92m\033[1m[+]\033[0m Exiting...\n"
