@@ -4,7 +4,7 @@ import logging, sys, json, time, signal, httplib, urllib, unicodedata
 from scapy.all import *
 from netaddr import *
 
-version = "0.2"
+version = "0.3"
 
 filename = "whoishere.conf"
 logfilename = "whoishere.log"
@@ -22,6 +22,8 @@ def ConfigCheck():
 		file = open(filename, "w")
 		file.write('{'\
 		'"config" : [{"interface": "wlan0mon"},\n'\
+		'            {"fingerprint_signal": false},\n'\
+                '            {"fingerprint_minutes": false},\n'\
 		'            {"pushoverapitoken": ""},\n'\
 		'            {"pushoveruserkey": "" }],\n'\
 		'"list"   : [{"name": "James Clerk Maxwell", "mac": "00:co:ca:c0:79:fa", "color": "1"},\n'\
@@ -42,11 +44,22 @@ def ConfigCheck():
 			print "\033[91mSomething is wrong with the configuration file."
 			print "Edit or delete "+filename+" and try again.\033[0m\n\n"
 			exit()
+        global fingerprint_signal
+        if list[0]['config'][1]['fingerprint_signal'] :
+                fingerprint_signal = True
+        else :
+                fingerprint_signal = False
+        global fingerprint_minutes
+        if list[0]['config'][2]['fingerprint_minutes'] :
+                fingerprint_minutes = True
+        else :
+                fingerprint_minutes = False
 	global pushoverenabled
-        if str(list[0]['config'][1]['pushoverapitoken']) != "" :
+        if str(list[0]['config'][3]['pushoverapitoken']) != "" :
                 pushoverenabled = "Enabled"
         else :
                 pushoverenabled = "Disabled"
+        
 
 
 def Welcome() :
@@ -75,6 +88,8 @@ def PrintConfig() :
         print "    Configuration File      \033[94m\033[1m[" + filename + "]\033[0m"
 	print "    Log File                \033[94m\033[1m[" + logfilename + "]\033[0m"
 	print "    Monitor Interface       \033[94m\033[1m[" + interface + "]\033[0m"
+	print "    Fingerprint Signal      \033[94m\033[1m[" + ("Enabled" if fingerprint_signal else "Disabled") + "]\033[0m"
+	print "    Fingerprint Minutes     \033[94m\033[1m[" + ("Enabled" if fingerprint_minutes else "Disabled") + "]\033[0m"
 	print "    Pushover Notifications  \033[94m\033[1m[" + pushoverenabled + "]\033[0m\n"
 	print "\n\033[92m\033[1m[+]\033[0m Listening for probe requests...\n"
 
@@ -99,12 +114,13 @@ def SearchList(pkt) :
 
 def PrintInfo(pkt) :
 	global fingerprint
-	timea = time.strftime("%Y-%m-%d %H:%M")
+	timea = time.strftime("%Y-%m-%d %H:%M:%S")
+	timefingerprint = time.strftime("%Y-%m-%d %H" + (":%M" if fingerprint_minutes else ""))
 	namef = " NAME: " + name.ljust(maxlenght)[0:maxlenght]
 	mac = " MAC: " + pkt.addr2
 	SSID = " SSID: " + pkt.info.ljust(maxlenght)[0:maxlenght]
 	OUI = " OUI: "+ oui
-	db = -(256-ord(pkt.notdecoded[-4:-3]))
+	db = -(256-(ord(pkt.notdecoded[-4:-3]) if pkt.notdecoded[-4:-3] else 0))
         if db <= -100:
                 quality = 0
         elif db >= -50:
@@ -113,12 +129,16 @@ def PrintInfo(pkt) :
                 quality = 2 * (db + 100)
         quality = str(quality)+"%"
         quality = " SIGNAL: " + quality.ljust(4, ' ')
-        fingerprint = COLOR + timea + quality + namef + mac + SSID + OUI +'\033[0m'
+        fingerprint = COLOR + timefingerprint + (quality if fingerprint_signal else "") + namef + mac + SSID + OUI +'\033[0m'
+        outputline = COLOR + timea + quality + namef + mac + SSID + OUI +'\033[0m'
 	if fingerprint not in uniquefingerprint :
 		uniquefingerprint.append(fingerprint)
-        	print fingerprint
+        	print outputline
 		if COLOR == '\033[9'+'1'+'m' :
-			pushover_notification(fingerprint[22:-3])
+                        try :
+                                pushover_notification(outputline[22:-3])
+                        except :
+                                print "Failed to send pushover notification: " + outputline[22:-3]
 
 def WriteLog(fingerprint):
         file = open(logfilename, "a")
@@ -141,8 +161,8 @@ def pushover_notification(fingerprint):
 	conn = httplib.HTTPSConnection("api.pushover.net:443")
 	conn.request("POST", "/1/messages.json",
   	urllib.urlencode({
-	"token": str(list[0]['config'][1]['pushoverapitoken']),
-	"user": str(list[0]['config'][2]['pushoveruserkey']),
+	"token": str(list[0]['config'][3]['pushoverapitoken']),
+	"user": str(list[0]['config'][4]['pushoveruserkey']),
     	"message": fingerprint,
   	}), { "Content-type": "application/x-www-form-urlencoded" })
 	conn.getresponse()
