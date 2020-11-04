@@ -130,8 +130,8 @@ def PrintInfo(pkt) :
                 quality = 2 * (db + 100)
         quality = str(quality)+"%"
         quality = " SIGNAL: " + quality.ljust(4, ' ')
-        fingerprint = COLOR + timefingerprint + (quality if fingerprint_signal else "") + namef + mac + SSID + OUI +'\033[0m'
-        outputline = COLOR + timea + quality + namef + mac + SSID + OUI +'\033[0m'
+        fingerprint = unicode(COLOR + timefingerprint + (quality if fingerprint_signal else "") + namef + mac + SSID + OUI +'\033[0m', errors='ignore')
+        outputline = unicode(COLOR + timea + quality + namef + mac + SSID + OUI +'\033[0m', errors='ignore')
 	if fingerprint not in uniquefingerprint :
 		uniquefingerprint.append(fingerprint)
         	print outputline
